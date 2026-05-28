@@ -47,41 +47,148 @@
 
 ---
 
+
 ## 功能全景 / Feature Map
 
-`
-                         ┌──────────────────────────┐
-                         │     sm CLI / Python SDK    │
-                         │  回忆 / 写入 / 上下文 / 状态  │
-                         └────────────┬─────────────┘
-                                      │
-            ┌─────────────────────────┼─────────────────────────┐
-            ▼                         ▼                         ▼
-    ┌───────────────┐       ┌─────────────────┐       ┌────────────────┐
-    │  5层记忆模型    │       │   混合检索引擎    │       │  Token优化       │
-    │               │       │                 │       │                │
-    │ Profile (永久) │       │ FTS5 全文搜索    │       │ 分层预算        │
-    │ Project (中等) │       │ 向量语义检索      │       │ 自动压缩        │
-    │ Task (快速)    │       │ 标签匹配         │       │ 智能摘要        │
-    │ Episodic (按需)│       │ 实体匹配         │       │ AGENTS<8KB     │
-    │ Artifact (参考)│       │ 7因子重排序      │       │ 上下文<2000t   │
-    └───────────────┘       └─────────────────┘       └────────────────┘
-            │                         │                         │
-            └─────────────────────────┼─────────────────────────┘
-                                      │
-              ┌───────────────────────┼───────────────────────┐
-              ▼                       ▼                       ▼
-      ┌──────────────┐      ┌─────────────────┐      ┌──────────────┐
-      │   数据层       │      │   安全 & 质控     │      │   多工具接入    │
-      │              │      │                 │      │              │
-      │ SQLite 主库   │      │ 自动脱敏 (6模式)  │      │ Codex Skill  │
-      │ ChromaDB 向量  │      │ 内容去重         │      │ MCP Server   │
-      │ Markdown 镜像  │      │ 版本控制         │      │ RTK Hook     │
-      │ FTS5 全文索引  │      │ 异步嵌入队列      │      │ Python SDK   │
-      │ 图谱关系      │      │ 噪声过滤         │      │ sm CLI       │
-      └──────────────┘      └─────────────────┘      └──────────────┘
-`
+```mermaid
+graph TB
+    CLI["sm CLI / Python SDK<br/>remember · recall · context · status"]
+    
+    CLI --> Mem["🧠 5层记忆模型"]
+    CLI --> Search["🔍 混合检索引擎"]
+    CLI --> Token["✂️ Token 优化系统"]
+    
+    Mem --> M1["L1 Profile<br/>用户偏好 · 永久 · 300t"]
+    Mem --> M2["L2 Project<br/>项目知识 · 中等 · 1200t"]
+    Mem --> M3["L3 Task<br/>当前任务 · 快速 · 800t"]
+    Mem --> M4["L4 Episodic<br/>历史事件 · 按需 · 600t"]
+    Mem --> M5["L5 Artifact<br/>代码片段 · 引用 · on-demand"]
+    
+    Search --> S1["FTS5 全文检索<br/>关键词精确匹配"]
+    Search --> S2["向量语义检索<br/>ChromaDB 余弦相似度"]
+    Search --> S3["标签 + 实体匹配<br/>结构化过滤"]
+    Search --> S4["7因子重排序<br/>语义35%+关键词20%+重要性15%+时效10%+范围10%+项目5%+频率5%"]
+    
+    Token --> T1["分层 Token 预算<br/>每层独立上限"]
+    Token --> T2["上下文自动压缩<br/>合并相似 → 保留语义"]
+    Token --> T3["AGENTS.md < 8KB<br/>硬限制 32KB"]
+    
+    Mem --> Store
+    Search --> Store
+    Token --> Store
+    
+    subgraph Store["💾 数据层"]
+        D1["SQLite 主库<br/>FTS5 全文索引"]
+        D2["ChromaDB<br/>向量索引"]
+        D3["Markdown 镜像<br/>人类可读 · Git 追踪"]
+        D4["图谱关系<br/>related_to · caused_by · depends_on"]
+    end
+    
+    Store --> Sec["🛡️ 安全质控"]
+    Sec --> E1["6模式自动脱敏<br/>API Key · Token · 密码 · IP"]
+    Sec --> E2["内容去重<br/>SHA256 哈希比对"]
+    Sec --> E3["版本控制<br/>append-only · parent_id"]
+    Sec --> E4["异步嵌入队列<br/>不阻塞写入"]
+    
+    Store --> Tool["🔌 多工具接入"]
+    Tool --> F1["Codex CLI<br/>Skill + Tool Call"]
+    Tool --> F2["Claude CLI<br/>RTK Hook"]
+    Tool --> F3["Claude Desktop<br/>MCP Server"]
+    Tool --> F4["Hermes Desktop<br/>Python SDK"]
+```
 
+### 模块详情
+
+| 模块 | 子模块 | 文件 | 行数 | 说明 |
+|------|--------|------|------|------|
+| **5层记忆** | 数据模型 | `core/models.py` | 126 | Pydantic v2，5 层 + 图谱 + 任务队列 |
+| | 配置中心 | `core/config.py` | 47 | Token 预算 / 衰减率 / 检索权重 |
+| | 异常体系 | `core/exceptions.py` | 8 | 7 种专用异常 |
+| **数据层** | SQLite Schema | `db/schema.py` | 126 | 4 表 + FTS5 + 3 触发器 + 9 索引 |
+| | Repository | `db/repository.py` | 379 | CRUD + 去重 + FTS5 + 任务队列 |
+| | 连接管理 | `db/connection.py` | 35 | 单例 + WAL + 外键 |
+| **检索引擎** | 混合搜索 | `retrieval/searcher.py` | 127 | FTS5 + Tag + Entity + 7因子重排序 |
+| | 上下文构建 | `retrieval/context_builder.py` | 106 | Token预算注入 + AGENTS.md 生成 |
+| **Token优化** | 压缩器 | `lifecycle/compressor.py` | 60 | 分层预算 + 语义保留压缩 |
+| | 衰减引擎 | `lifecycle/decay.py` | 47 | 5 种独立衰减率 + 自动归档 |
+| **安全质控** | 脱敏器 | `security/sanitizer.py` | 28 | 6 种正则模式 |
+| **异步系统** | 任务队列 | `workers/queue.py` | 70 | 后台消费 + 并发控制 |
+| | 嵌入处理器 | `workers/embedding_worker.py` | 53 | ChromaDB / OpenAI / 本地 fallback |
+| **多工具接入** | 主 API | `api.py` | 189 | SharedMemory 类，14 个异步方法 |
+| | Codex 适配器 | `integration/codex_adapter.py` | 71 | Tool-call 协议 |
+| | MCP 服务器 | `integration/mcp_server.py` | 186 | stdio 传输，5 工具 |
+| | 通用初始化 | `integration/universal_setup.py` | 217 | 自动检测 + 一键配置 |
+| **CLI 工具** | sm 命令 | `cli/main.py` | 154 | 9 个子命令 |
+
+### 检索流水线
+
+```
+用户输入 "数据库选型用什么"
+         │
+         ▼
+┌────── FTS5 ──────┐    ┌─── ChromaDB ───┐    ┌── Tags ──┐    ┌─ Entities ─┐
+│ "数据库 选型"      │    │ 语义向量相似度   │    │ "database"│    │ "SQLite"    │
+│ BM25 关键词匹配   │    │ cosine > 0.3   │    │ "backend" │    │ "PostgreSQL"│
+└──────┬───────────┘    └──────┬──────────┘    └────┬─────┘    └─────┬──────┘
+       │                       │                    │                │
+       └───────────────────────┼────────────────────┼────────────────┘
+                               │ 合并去重
+                               ▼
+                    ┌─────────────────────┐
+                    │   7因子重排序        │
+                    │                     │
+                    │  语义相似度 × 0.35   │
+                    │  关键词得分 × 0.20   │
+                    │  重要性    × 0.15    │
+                    │  时效性    × 0.10    │
+                    │  范围匹配  × 0.10    │
+                    │  项目匹配  × 0.05    │
+                    │  访问频率  × 0.05    │
+                    └──────────┬──────────┘
+                               ▼
+                    ┌─────────────────────┐
+                    │  Top-K 结果 (默认10) │
+                    │  → Token预算压缩    │
+                    │  → 注入 AI 上下文    │
+                    └─────────────────────┘
+```
+
+### 记忆生命周期
+
+```
+新记忆写入
+    │
+    ├──→ 自动脱敏 (6种敏感模式)
+    ├──→ SHA256 去重检测
+    ├──→ 写入 SQLite (同步, <1ms)
+    └──→ 加入嵌入队列 (异步, 后台处理)
+            │
+            ▼
+    ┌───────────────┐
+    │  活跃状态       │ ← 可被检索
+    │  importance:   │ ← 随天数指数衰减
+    │  原始值×e^(-r×t)│
+    └───────┬───────┘
+            │ 当 importance < 阈值
+            ▼
+    ┌───────────────┐
+    │  归档状态       │ ← 不参与检索
+    │  可手动恢复     │ ← forget 命令的反操作
+    └───────┬───────┘
+            │ 当 expires_at 到达
+            ▼
+    ┌───────────────┐
+    │  过期状态       │ ← 标记删除
+    │  sm decay      │ ← 批量清理
+    └───────────────┘
+```
+
+| 层级 | 衰减率 | 半年后剩余 | 一年后剩余 | 归档阈值 |
+|------|--------|-----------|-----------|----------|
+| Profile | 0.001 | 83% | 69% | 永不自动归档 |
+| Project | 0.01 | 17% | 3% | < 0.10 |
+| Task | 0.1 | 几乎0 | 0 | < 0.15 |
+| Episodic | 0.03 | 0.4% | 0 | < 0.10 |
 ---
 
 ## 快速开始 / Quick Start
