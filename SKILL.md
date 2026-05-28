@@ -90,3 +90,22 @@ Memory is automatically shared across:
 - **Hermes Desktop** — via MEMORY.md sync + Python SDK
 
 Run `sm init` once to auto-configure all detected tools.
+
+## Further Reading
+- `references/architecture.md` — Full architecture and design rationale
+- `references/api-reference.md` — Complete CLI + SDK + MCP API reference  
+- `references/integration-guide.md` — Per-tool setup instructions
+
+## Utility Scripts
+- `scripts/validate.py` — Validate installation health
+- `scripts/diagnose.py` — Full system diagnostics
+
+## Install
+```bash
+# One-line install (Windows)
+powershell -ExecutionPolicy Bypass -File install.ps1
+
+# Manual
+pip install -e .
+sm init
+```
