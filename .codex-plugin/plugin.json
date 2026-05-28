@@ -1,0 +1,34 @@
+{
+  "name": "shared-memory",
+  "version": "1.0.0",
+  "description": "Cross-tool shared long-term memory for AI coding agents. 5-layer memory hierarchy with hybrid FTS5+vector search, token-budgeted context injection, and multi-tool sync.",
+  "author": "dev",
+  "license": "MIT",
+  "skill": {
+    "name": "shared-memory",
+    "file": "SKILL.md"
+  },
+  "entry": {
+    "type": "cli",
+    "commands": {
+      "remember": "sm remember",
+      "recall": "sm recall",
+      "context": "sm context",
+      "status": "sm status",
+      "init": "sm init"
+    }
+  },
+  "install": {
+    "windows": "powershell -ExecutionPolicy Bypass -File install.ps1",
+    "unix": "bash install.sh"
+  },
+  "compatibility": {
+    "tools": ["codex-cli", "claude-code", "claude-desktop", "hermes-desktop"],
+    "requires_python": ">=3.11"
+  },
+  "marketplace": {
+    "personal": true,
+    "category": "infrastructure",
+    "tags": ["memory", "rag", "cross-tool", "shared-context", "local-first"]
+  }
+}

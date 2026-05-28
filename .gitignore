@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Shared memory data (local only)
+~/.shared-memory/
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temp
+*.tmp
+_search_skills.py
+test_cn.txt
+tmp_check.txt
+SHARED_MEMORY_DESIGN.md
+$env:TEMP/codex-skills-study/
+
+# OS
+.DS_Store
+Thumbs.db
